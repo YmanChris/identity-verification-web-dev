@@ -12,6 +12,7 @@ interface CameraStepProps {
 const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCapture }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const guideRef = useRef<HTMLDivElement>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -98,17 +99,62 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
   }, []);
 
   const handleCapture = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && guideRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      // 使用视频的实际尺寸
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
+
+      const srcWidth = video.videoWidth;
+      const srcHeight = video.videoHeight;
+
+      if (!srcWidth || !srcHeight) return;
+
+      // Map guidance box (in element coordinates) to video source coordinates
+      const videoRect = video.getBoundingClientRect();
+      const guideRect = guideRef.current.getBoundingClientRect();
+
+      const vw = videoRect.width;
+      const vh = videoRect.height;
+      const iw = srcWidth;
+      const ih = srcHeight;
+
+      const scale = Math.max(vw / iw, vh / ih);
+      const displayW = iw * scale;
+      const displayH = ih * scale;
+      const offsetX = (vw - displayW) / 2;
+      const offsetY = (vh - displayH) / 2;
+
+      const gx = guideRect.left - videoRect.left;
+      const gy = guideRect.top - videoRect.top;
+      const gw = guideRect.width;
+      const gh = guideRect.height;
+
+      let sx = (gx - offsetX) / scale;
+      let sy = (gy - offsetY) / scale;
+      let sw = gw / scale;
+      let sh = gh / scale;
+
+      // Clamp to source bounds
+      if (sx < 0) {
+        sw += sx;
+        sx = 0;
+      }
+      if (sy < 0) {
+        sh += sy;
+        sy = 0;
+      }
+      if (sx + sw > iw) sw = iw - sx;
+      if (sy + sh > ih) sh = ih - sy;
+
+      if (sw <= 0 || sh <= 0) return;
+
+      // Crop the guide area directly (no rotation)
+      canvas.width = sw;
+      canvas.height = sh;
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
         onCapture(dataUrl);
       }
@@ -190,7 +236,7 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
           {/* Top Panel: Guidance (Portrait Frame) */}
           <div className="flex-1 relative flex items-center justify-center p-8 z-10">
               {/* Guidance Box (Standard Portrait Ratio 1/1.58) */}
-              <div className="h-[85%] aspect-[1/1.58] relative pointer-events-none">
+              <div ref={guideRef} className="w-[98%] aspect-[1.58/1] relative pointer-events-none">
                   <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
                   <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
                   <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
@@ -199,22 +245,7 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
                   {/* Dimming Mask */}
                   <div className="absolute -inset-[2000px] border-[2000px] border-black/50"></div>
 
-                  {/* Orientation Indicators (Inside the clear box) */}
-                  {docType === DocType.NATIONAL_ID ? (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 opacity-90 z-20">
-                      <span className="text-white text-[9px] font-bold uppercase tracking-widest rotate-90 whitespace-nowrap drop-shadow-md">Top</span>
-                      <svg className="w-6 h-6 text-white animate-pulse drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </div>
-                  ) : docType === DocType.PASSPORT ? (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-90 z-20">
-                      <span className="text-white text-[9px] font-bold uppercase tracking-widest whitespace-nowrap drop-shadow-md">Top</span>
-                      <svg className="w-6 h-6 text-white animate-pulse drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                      </svg>
-                    </div>
-                  ) : null}
+                  {/* Orientation Indicators removed */}
               </div>
 
               {/* Instructional Hint */}

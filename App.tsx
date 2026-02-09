@@ -17,6 +17,7 @@ const App: React.FC = () => {
     front: null,
     back: null
   });
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // When country changes, ensure docType is valid for that country
   useEffect(() => {
@@ -72,6 +73,10 @@ const App: React.FC = () => {
   const handleRetake = () => {
     // Return to the very beginning (Selection Step)
     resetFlow();
+  };
+
+  const closePreview = () => {
+    setPreviewImage(null);
   };
 
   const handleConfirm = () => {
@@ -146,7 +151,7 @@ const App: React.FC = () => {
         )}
 
         {step === 'SUCCESS' && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-in pb-8">
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-fade-in pb-8 relative">
             <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-6">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -160,19 +165,29 @@ const App: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4 mb-8 w-full justify-center items-center">
               {images.front && (
                 <div className="flex flex-col items-center w-full sm:w-1/2 max-w-[200px]">
-                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm relative group">
+                   <button
+                     type="button"
+                     onClick={() => setPreviewImage(images.front)}
+                     className="w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm relative group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     aria-label="Preview front image"
+                   >
                       <img src={images.front} alt="Front" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                   </div>
+                   </button>
                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Front Side</span>
                 </div>
               )}
               {images.back && (
                 <div className="flex flex-col items-center w-full sm:w-1/2 max-w-[200px]">
-                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm relative group">
+                   <button
+                     type="button"
+                     onClick={() => setPreviewImage(images.back)}
+                     className="w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm relative group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     aria-label="Preview back image"
+                   >
                       <img src={images.back} alt="Back" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                   </div>
+                   </button>
                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Back Side</span>
                 </div>
               )}
@@ -193,6 +208,30 @@ const App: React.FC = () => {
               >
                 Retake
               </button>
+            </div>
+          </div>
+        )}
+
+        {previewImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+            <button
+              type="button"
+              onClick={closePreview}
+              className="absolute inset-0 cursor-zoom-out"
+              aria-label="Close preview"
+            />
+            <div className="relative w-full max-w-3xl">
+              <button
+                type="button"
+                onClick={closePreview}
+                className="absolute -top-10 right-0 text-white/80 hover:text-white text-sm font-semibold"
+                aria-label="Close preview"
+              >
+                Close
+              </button>
+              <div className="bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+                <img src={previewImage} alt="Preview" className="w-full h-full object-contain max-h-[80vh]" />
+              </div>
             </div>
           </div>
         )}
