@@ -1,21 +1,30 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import mkcert from 'vite-plugin-mkcert'
 
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import mkcert from 'vite-plugin-mkcert';
+export default defineConfig(({ mode }) => {
+  const isProd = mode === 'production'
 
-// https://vitejs.dev/config/
-export default defineConfig({
-  server: {
-    // 允许局域网内其他设备访问
-    host: true,
-    // 开启 HTTPS
-    https: true,
-    // 默认端口
-    port: 5173
-  },
-  plugins: [
-    react(),
-    // 自动生成并配置本地 HTTPS 证书
-    mkcert()
-  ]
-});
+  return {
+    /**
+     * GitHub Pages 项目站点必须设置 base
+     * 例：https://xxx.github.io/my-app/
+     * 仓库名是 my-app
+     */
+    base: isProd ? '/identity-verification-web-dev/' : '/',
+
+    server: {
+      host: true,
+      // 只在本地开发启用 https
+      https: !isProd,
+      port: 5173
+    },
+
+    plugins: [
+      react(),
+      // mkcert 仅用于本地开发
+      ...(isProd ? [] : [mkcert()])
+    ]
+  }
+})
+
