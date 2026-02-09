@@ -1,0 +1,260 @@
+
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { DocType, DocSide } from '../types';
+
+interface CameraStepProps {
+  docType: DocType;
+  side: DocSide;
+  onBack: () => void;
+  onCapture: (url: string) => void;
+}
+
+const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCapture }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+
+  // Determine side text based on document type
+  let sideText = '';
+  if (docType === DocType.PASSPORT) {
+    sideText = 'Photo Page';
+  } else {
+    sideText = side === 'FRONT' ? 'Front Side' : 'Back Side';
+  }
+
+  const startCamera = useCallback(async () => {
+    // 检查是否在安全上下文中 (HTTPS)
+    if (!window.isSecureContext) {
+      setHasPermission(false);
+      setErrorMessage('Camera access requires a secure connection (HTTPS). Please check your URL.');
+      return;
+    }
+
+    // 检查浏览器是否支持 mediaDevices
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setHasPermission(false);
+      setErrorMessage('Your browser does not support camera access.');
+      return;
+    }
+
+    setIsInitializing(true);
+    setErrorMessage('');
+
+    try {
+      // 清理旧的流
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+
+      // 尝试获取后置摄像头
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        // 确保视频在设置源后播放
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.error("Video play error:", playErr);
+        }
+      }
+      setHasPermission(true);
+    } catch (err: any) {
+      console.error('Camera access error:', err);
+      setHasPermission(false);
+      
+      // 根据错误类型给出更具体的提示
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setErrorMessage('Camera access was denied. Please enable it in your browser settings.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setErrorMessage('No camera found on this device.');
+      } else {
+        setErrorMessage('Could not access camera. Please refresh and try again.');
+      }
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [stream]);
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const handleCapture = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // 使用视频的实际尺寸
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        onCapture(dataUrl);
+      }
+    }
+  };
+
+  if (hasPermission === false) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-8 animate-fade-in">
+        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-6 border border-red-100">
+          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Camera Permission Required</h3>
+        <p className="text-gray-500 mb-8 leading-relaxed max-w-xs mx-auto">
+          {errorMessage || 'We need access to your camera to scan your ID. Please enable camera permissions in your browser settings.'}
+        </p>
+        <div className="space-y-3 w-full max-w-xs">
+          <button 
+            onClick={() => {
+              setHasPermission(null);
+              setTimeout(startCamera, 100);
+            }} 
+            disabled={isInitializing}
+            className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            {isInitializing ? 'Requesting...' : 'Grant Camera Access'}
+          </button>
+          <button 
+            onClick={onBack} 
+            className="w-full py-4 bg-gray-50 text-gray-500 font-bold rounded-xl hover:bg-gray-100 transition-all"
+          >
+            Go Back
+          </button>
+        </div>
+        {!window.isSecureContext && (
+          <div className="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-100">
+            <p className="text-amber-700 text-xs font-medium">
+              ⚠️ Tip: Camera access requires HTTPS. Local testing should use localhost or a secure tunnel.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col h-full animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 px-1">
+        <button onClick={onBack} className="text-gray-400 hover:text-gray-600 p-2 transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <div className="flex flex-col items-center">
+          <span className="text-[10px] font-bold text-gray-800/40 uppercase tracking-[0.4em]">Live Scan</span>
+          <span key={sideText} className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-0.5 animate-pulse">
+            {sideText}
+          </span>
+        </div>
+        <div className="w-10"></div>
+      </div>
+
+      {/* Camera Viewfinder Container */}
+      <div className="relative w-full aspect-[9/16] bg-zinc-950 rounded-[2.5rem] overflow-hidden shadow-2xl mx-auto border-4 border-gray-50/5">
+        
+        {/* Video Background */}
+        <video 
+          ref={videoRef} 
+          autoPlay 
+          playsInline 
+          muted
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+
+        {/* Interface Overlay */}
+        <div className="absolute inset-0 flex flex-col">
+          
+          {/* Top Panel: Guidance (Portrait Frame) */}
+          <div className="flex-1 relative flex items-center justify-center p-8 z-10">
+              {/* Guidance Box (Standard Portrait Ratio 1/1.58) */}
+              <div className="h-[85%] aspect-[1/1.58] relative pointer-events-none">
+                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
+                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
+                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
+                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
+                  
+                  {/* Dimming Mask */}
+                  <div className="absolute -inset-[2000px] border-[2000px] border-black/50"></div>
+
+                  {/* Orientation Indicators (Inside the clear box) */}
+                  {docType === DocType.NATIONAL_ID ? (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 opacity-90 z-20">
+                      <span className="text-white text-[9px] font-bold uppercase tracking-widest rotate-90 whitespace-nowrap drop-shadow-md">Top</span>
+                      <svg className="w-6 h-6 text-white animate-pulse drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </div>
+                  ) : docType === DocType.PASSPORT ? (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-90 z-20">
+                      <span className="text-white text-[9px] font-bold uppercase tracking-widest whitespace-nowrap drop-shadow-md">Top</span>
+                      <svg className="w-6 h-6 text-white animate-pulse drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                      </svg>
+                    </div>
+                  ) : null}
+              </div>
+
+              {/* Instructional Hint */}
+              <div className="absolute bottom-4 inset-x-0 flex justify-center z-20">
+                  <div className="bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 shadow-lg">
+                    <p className="text-white text-[9px] font-bold uppercase tracking-[0.25em]">
+                        Align {sideText} in frame
+                    </p>
+                  </div>
+              </div>
+          </div>
+
+          {/* Bottom Panel: Shutter Control */}
+          <div className="h-40 md:h-48 flex flex-col items-center justify-center bg-transparent z-20 pb-8">
+            <button 
+              onClick={handleCapture}
+              disabled={!hasPermission}
+              className="group relative flex items-center justify-center active:scale-90 transition-all duration-150 mb-3 disabled:opacity-50"
+            >
+               <div className="w-20 h-20 rounded-full border-[5px] border-white/30 backdrop-blur-[4px] shadow-2xl group-hover:border-white/50"></div>
+               <div className="absolute w-14 h-14 bg-white rounded-full shadow-lg group-active:bg-gray-100"></div>
+            </button>
+            <span className="text-[11px] text-white/80 uppercase font-black tracking-[0.3em] drop-shadow-lg select-none">Capture</span>
+          </div>
+        </div>
+
+        {/* Loading Overlay */}
+        {isInitializing && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="flex flex-col items-center">
+              <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4"></div>
+              <p className="text-white text-xs font-bold tracking-widest uppercase">Initializing Camera...</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <canvas ref={canvasRef} className="hidden" />
+    </div>
+  );
+};
+
+export default CameraStep;

@@ -1,0 +1,7 @@
+{
+  "name": "Identity Verification Flow",
+  "description": "A secure document verification flow for CN and SG regions supporting ID and Passport capture.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
