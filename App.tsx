@@ -103,15 +103,6 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col">
-      {/* Header Decoration */}
-      <div className="pt-8 pb-4 border-b border-gray-100 flex items-center justify-center shrink-0">
-          <div className="flex items-center space-x-3 text-slate-700 font-bold tracking-widest text-sm">
-              <div className="h-px w-12 bg-gray-200"></div>
-              <span>BY <span className="text-blue-900">ARES</span></span>
-              <div className="h-px w-12 bg-gray-200"></div>
-          </div>
-      </div>
-
       {/* Dynamic Step Rendering */}
       <div className="flex-1 flex flex-col w-full max-w-lg mx-auto p-6">
         {step === 'SELECTION' && (

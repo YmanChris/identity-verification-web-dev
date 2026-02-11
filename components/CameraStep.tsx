@@ -17,6 +17,7 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isFlipAnimating, setIsFlipAnimating] = useState(false);
 
   // Determine side text based on document type
   let sideText = '';
@@ -97,6 +98,15 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (docType === DocType.NATIONAL_ID && side === 'BACK') {
+      setIsFlipAnimating(true);
+      const timer = window.setTimeout(() => setIsFlipAnimating(false), 1400);
+      return () => window.clearTimeout(timer);
+    }
+    setIsFlipAnimating(false);
+  }, [docType, side]);
 
   const handleCapture = () => {
     if (videoRef.current && canvasRef.current && guideRef.current) {
@@ -210,7 +220,7 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
         </button>
         <div className="flex flex-col items-center">
-          <span className="text-[10px] font-bold text-gray-800/40 uppercase tracking-[0.4em]">Live Scan</span>
+          <span className="text-[10px] font-bold text-gray-800/40 uppercase tracking-[0.4em]">Document Scan</span>
           <span key={sideText} className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-0.5 animate-pulse">
             {sideText}
           </span>
@@ -220,6 +230,36 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
 
       {/* Camera Viewfinder Container */}
       <div className="relative w-full aspect-[9/16] bg-zinc-950 rounded-[2.5rem] overflow-hidden shadow-2xl mx-auto border-4 border-gray-50/5">
+        <style>{`
+          @keyframes idGuidePulse {
+            0% { transform: scale(0.9); opacity: 0; }
+            50% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0; }
+          }
+          .animate-id-guide {
+            animation: idGuidePulse 4s ease-in-out infinite;
+          }
+          .flip-opaque {
+            opacity: 0.95;
+            animation: none;
+          }
+          .flip-scene {
+            perspective: 1200px;
+          }
+          .flip-card-3d {
+            transform-style: preserve-3d;
+            transition: transform 1.4s ease-out;
+          }
+          .flip-card-3d.is-flipped {
+            transform: rotateY(180deg);
+          }
+          .flip-face {
+            backface-visibility: hidden;
+          }
+          .flip-back {
+            transform: rotateY(180deg);
+          }
+        `}</style>
         
         {/* Video Background */}
         <video 
@@ -235,26 +275,73 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
           
           {/* Top Panel: Guidance (Portrait Frame) */}
           <div className="flex-1 relative flex items-center justify-center p-8 z-10">
-              {/* Guidance Box (Standard Portrait Ratio 1/1.58) */}
+              {/* Guidance Box */}
               <div ref={guideRef} className="w-[98%] aspect-[1.58/1] relative pointer-events-none">
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
+                  <div className="absolute inset-0 rounded-[1.75rem] border-4 border-lime-400 shadow-[0_0_18px_rgba(34,197,94,0.6)]"></div>
                   
                   {/* Dimming Mask */}
-                  <div className="absolute -inset-[2000px] border-[2000px] border-black/50"></div>
+                  <div className="absolute -inset-[2000px] border-[2000px] border-black/80 rounded-[1.75rem]"></div>
 
-                  {/* Orientation Indicators removed */}
+                  {/* Front-side ID guidance mock */}
+                  {docType === DocType.NATIONAL_ID && (side === 'FRONT' || side === 'BACK') && (
+                    <div className="absolute inset-0 p-6 flex items-center justify-center flip-scene">
+                      <div className={`w-full h-full flip-card-3d ${side === 'BACK' ? 'is-flipped' : ''}`}>
+                        {/* Front card */}
+                        <div className="absolute inset-0 flip-face">
+                          <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex items-center gap-6 px-6 ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
+                            <div className="w-[30%] aspect-square rounded-xl bg-white/20 border border-white/40 flex items-center justify-center">
+                              <svg className="w-[105%] h-[105%] text-slate-700/80" viewBox="0 0 64 64" fill="none">
+                                <circle cx="32" cy="22" r="12" fill="currentColor" />
+                                <path d="M12 54c0-11 9-20 20-20s20 9 20 20" fill="currentColor" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 space-y-3">
+                              <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
+                              <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
+                              <div className="h-4 w-[65%] rounded-full bg-slate-700/55" />
+                              <div className="h-4 w-[75%] rounded-full bg-slate-700/60" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Back card */}
+                        <div className="absolute inset-0 flip-face flip-back">
+                          <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex flex-col justify-center gap-4 px-6 relative ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
+                            <div className="h-4 w-[55%] rounded-full bg-slate-700/55" />
+                            <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
+                            <div className="h-4 w-[65%] rounded-full bg-slate-700/60" />
+                            <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
+                            <div className="h-4 w-[45%] rounded-full bg-slate-700/50" />
+                            <div className="h-4 w-[75%] rounded-full bg-slate-700/70" />
+                          </div>
+                        </div>
+                      </div>
+                      {side === 'BACK' && (
+                        <div className="absolute -bottom-8 inset-x-0 flex justify-center z-30">
+                          <span className="bg-white/15 text-white text-xs font-semibold px-4 py-1.5 rounded-full border border-white/25 shadow-lg backdrop-blur-md">
+                            Skip →
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Instructional Hint */}
               <div className="absolute bottom-4 inset-x-0 flex justify-center z-20">
-                  <div className="bg-black/40 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 shadow-lg">
-                    <p className="text-white text-[9px] font-bold uppercase tracking-[0.25em]">
-                        Align {sideText} in frame
+                {docType === DocType.NATIONAL_ID && side === 'BACK' ? (
+                  <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
+                    <p className="text-white text-[15px] font-semibold tracking-wide">
+                      Please provide the next page.
                     </p>
                   </div>
+                ) : (
+                  <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
+                    <p className="text-white text-[15px] font-semibold tracking-wide">
+                      Align front side in frame
+                    </p>
+                  </div>
+                )}
               </div>
           </div>
 
