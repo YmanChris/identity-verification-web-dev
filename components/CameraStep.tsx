@@ -18,6 +18,7 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isFlipAnimating, setIsFlipAnimating] = useState(false);
+  const [showFlipScene, setShowFlipScene] = useState(false);
 
   // Determine side text based on document type
   let sideText = '';
@@ -102,10 +103,17 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
   useEffect(() => {
     if (docType === DocType.NATIONAL_ID && side === 'BACK') {
       setIsFlipAnimating(true);
-      const timer = window.setTimeout(() => setIsFlipAnimating(false), 1400);
-      return () => window.clearTimeout(timer);
+      setShowFlipScene(true);
+      const timer = window.setTimeout(() => {
+        setIsFlipAnimating(false);
+        setShowFlipScene(false);
+      }, 1400);
+      return () => {
+        window.clearTimeout(timer);
+      };
     }
     setIsFlipAnimating(false);
+    setShowFlipScene(false);
   }, [docType, side]);
 
   const handleCapture = () => {
@@ -232,7 +240,7 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
       <div className="relative w-full aspect-[9/16] bg-zinc-950 rounded-[2.5rem] overflow-hidden shadow-2xl mx-auto border-4 border-gray-50/5">
         <style>{`
           @keyframes idGuidePulse {
-            0% { transform: scale(0.9); opacity: 0; }
+            0% { transform: scale(0.98); opacity: 0; }
             50% { transform: scale(1); opacity: 0.8; }
             100% { transform: scale(1); opacity: 0; }
           }
@@ -245,19 +253,35 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
           }
           .flip-scene {
             perspective: 1200px;
-          }
-          .flip-card-3d {
-            transform-style: preserve-3d;
-            transition: transform 1.4s ease-out;
-          }
-          .flip-card-3d.is-flipped {
-            transform: rotateY(180deg);
+            -webkit-perspective: 1200px;
           }
           .flip-face {
             backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform-style: preserve-3d;
+            -webkit-transform-style: preserve-3d;
           }
-          .flip-back {
-            transform: rotateY(180deg);
+          @keyframes flipOut {
+            0% { transform: rotateY(0deg); opacity: 0.95; }
+            100% { transform: rotateY(90deg); opacity: 0.95; }
+          }
+          @keyframes flipIn {
+            0% { transform: rotateY(-90deg); opacity: 0.95; }
+            100% { transform: rotateY(0deg); opacity: 0.95; }
+          }
+          .flip-out {
+            animation: flipOut 0.7s ease-out forwards;
+            transform-origin: center center;
+            will-change: transform, opacity;
+          }
+          .flip-in {
+            animation: flipIn 0.7s ease-out forwards;
+            animation-delay: 0.7s;
+            transform-origin: center center;
+            will-change: transform, opacity;
+          }
+          .flip-in.hidden-until {
+            opacity: 0;
           }
         `}</style>
         
@@ -283,46 +307,79 @@ const CameraStep: React.FC<CameraStepProps> = ({ docType, side, onBack, onCaptur
                   <div className="absolute -inset-[2000px] border-[2000px] border-black/80 rounded-[1.75rem]"></div>
 
                   {/* Front-side ID guidance mock */}
-                  {docType === DocType.NATIONAL_ID && (side === 'FRONT' || side === 'BACK') && (
-                    <div className="absolute inset-0 p-6 flex items-center justify-center flip-scene">
-                      <div className={`w-full h-full flip-card-3d ${side === 'BACK' ? 'is-flipped' : ''}`}>
-                        {/* Front card */}
-                        <div className="absolute inset-0 flip-face">
-                          <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex items-center gap-6 px-6 ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
-                            <div className="w-[30%] aspect-square rounded-xl bg-white/20 border border-white/40 flex items-center justify-center">
-                              <svg className="w-[105%] h-[105%] text-slate-700/80" viewBox="0 0 64 64" fill="none">
-                                <circle cx="32" cy="22" r="12" fill="currentColor" />
-                                <path d="M12 54c0-11 9-20 20-20s20 9 20 20" fill="currentColor" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 space-y-3">
-                              <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
-                              <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
-                              <div className="h-4 w-[65%] rounded-full bg-slate-700/55" />
-                              <div className="h-4 w-[75%] rounded-full bg-slate-700/60" />
-                            </div>
-                          </div>
+                  {docType === DocType.NATIONAL_ID && side === 'FRONT' && (
+                    <div className="absolute inset-0 p-6 flex items-center justify-center">
+                      <div className="w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex items-center gap-6 px-6 animate-id-guide">
+                        <div className="w-[30%] aspect-square rounded-xl bg-white/20 border border-white/40 flex items-center justify-center">
+                          <svg className="w-[105%] h-[105%] text-slate-700/80" viewBox="0 0 64 64" fill="none">
+                            <circle cx="32" cy="22" r="12" fill="currentColor" />
+                            <path d="M12 54c0-11 9-20 20-20s20 9 20 20" fill="currentColor" />
+                          </svg>
                         </div>
+                        <div className="flex-1 space-y-3">
+                          <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
+                          <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
+                          <div className="h-4 w-[65%] rounded-full bg-slate-700/55" />
+                          <div className="h-4 w-[75%] rounded-full bg-slate-700/60" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                        {/* Back card */}
-                        <div className="absolute inset-0 flip-face flip-back">
-                          <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex flex-col justify-center gap-4 px-6 relative ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
-                            <div className="h-4 w-[55%] rounded-full bg-slate-700/55" />
+                  {/* Flip scene (front -> back) */}
+                  {docType === DocType.NATIONAL_ID && side === 'BACK' && showFlipScene && (
+                    <div className="absolute inset-6 flex items-center justify-center flip-scene">
+                      {/* Front card flips out */}
+                      <div className="absolute inset-0 flip-face flip-out">
+                        <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex items-center gap-6 px-6 ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
+                          <div className="w-[30%] aspect-square rounded-xl bg-white/20 border border-white/40 flex items-center justify-center">
+                            <svg className="w-[105%] h-[105%] text-slate-700/80" viewBox="0 0 64 64" fill="none">
+                              <circle cx="32" cy="22" r="12" fill="currentColor" />
+                              <path d="M12 54c0-11 9-20 20-20s20 9 20 20" fill="currentColor" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 space-y-3">
                             <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
-                            <div className="h-4 w-[65%] rounded-full bg-slate-700/60" />
                             <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
-                            <div className="h-4 w-[45%] rounded-full bg-slate-700/50" />
-                            <div className="h-4 w-[75%] rounded-full bg-slate-700/70" />
+                            <div className="h-4 w-[65%] rounded-full bg-slate-700/55" />
+                            <div className="h-4 w-[75%] rounded-full bg-slate-700/60" />
                           </div>
                         </div>
                       </div>
-                      {side === 'BACK' && (
-                        <div className="absolute -bottom-8 inset-x-0 flex justify-center z-30">
-                          <span className="bg-white/15 text-white text-xs font-semibold px-4 py-1.5 rounded-full border border-white/25 shadow-lg backdrop-blur-md">
-                            Skip →
-                          </span>
+
+                      {/* Back card flips in */}
+                      <div className="absolute inset-0 flip-face flip-in hidden-until">
+                        <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex flex-col justify-center gap-4 px-6 relative ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
+                          <div className="h-4 w-[55%] rounded-full bg-slate-700/55" />
+                          <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
+                          <div className="h-4 w-[65%] rounded-full bg-slate-700/60" />
+                          <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
+                          <div className="h-4 w-[45%] rounded-full bg-slate-700/50" />
+                          <div className="h-4 w-[75%] rounded-full bg-slate-700/70" />
                         </div>
-                      )}
+                      </div>
+                    </div>
+                  )}
+
+                  {docType === DocType.NATIONAL_ID && side === 'BACK' && (
+                    <div className="absolute -bottom-8 inset-x-0 flex justify-center z-30">
+                      <span className="bg-white/15 text-white text-xs font-semibold px-4 py-1.5 rounded-full border border-white/25 shadow-lg backdrop-blur-md">
+                        Skip →
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Back-side card (static after flip) */}
+                  {docType === DocType.NATIONAL_ID && side === 'BACK' && !showFlipScene && (
+                    <div className="absolute inset-0 p-6 flex items-center justify-center">
+                      <div className={`w-full h-full rounded-2xl bg-white/15 border border-white/30 backdrop-blur-[2px] flex flex-col justify-center gap-4 px-6 relative ${isFlipAnimating ? 'flip-opaque' : 'animate-id-guide'}`}>
+                        <div className="h-4 w-[55%] rounded-full bg-slate-700/55" />
+                        <div className="h-4 w-[80%] rounded-full bg-slate-700/70" />
+                        <div className="h-4 w-[65%] rounded-full bg-slate-700/60" />
+                        <div className="h-4 w-[70%] rounded-full bg-slate-700/60" />
+                        <div className="h-4 w-[45%] rounded-full bg-slate-700/50" />
+                        <div className="h-4 w-[75%] rounded-full bg-slate-700/70" />
+                      </div>
                     </div>
                   )}
               </div>
